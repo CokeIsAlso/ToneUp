@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ToneUp · 로그인</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script>
+    (function () {
+      var t = localStorage.getItem("toneup-theme");
+      if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
+</head>
+<body class="auth-body">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="ToneUp" class="nav-logo">
+      <span class="brand">ToneUp</span>
+    </div>
+    <h1 class="auth-title" id="authTitle">로그인</h1>
+    <p class="auth-sub" id="authSub">개인 성장 추적을 위해 로그인하세요.</p>
+
+    <form id="authForm" class="auth-form">
+      <label>이메일
+        <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required>
+      </label>
+      <label>비밀번호
+        <input type="password" id="password" autocomplete="current-password" placeholder="6자 이상" required minlength="6">
+      </label>
+      <div id="authError" class="auth-error" style="display:none;"></div>
+      <button type="submit" class="btn primary" id="authSubmit">로그인</button>
+    </form>
+
+    <p class="auth-switch">
+      <span id="switchText">아직 계정이 없나요?</span>
+      <a href="#" id="switchLink">회원가입</a>
+    </p>
+  </div>
+
+  <script>
+    let mode = "login"; // login | signup
+    const form = document.getElementById("authForm");
+    const titleEl = document.getElementById("authTitle");
+    const subEl = document.getElementById("authSub");
+    const submitBtn = document.getElementById("authSubmit");
+    const switchText = document.getElementById("switchText");
+    const switchLink = document.getElementById("switchLink");
+    const errorEl = document.getElementById("authError");
+
+    function setMode(m) {
+      mode = m;
+      const login = m === "login";
+      titleEl.textContent = login ? "로그인" : "회원가입";
+      subEl.textContent = login ? "개인 성장 추적을 위해 로그인하세요." : "이메일과 비밀번호로 가입하세요.";
+      submitBtn.textContent = login ? "로그인" : "회원가입";
+      switchText.textContent = login ? "아직 계정이 없나요?" : "이미 계정이 있나요?";
+      switchLink.textContent = login ? "회원가입" : "로그인";
+      errorEl.style.display = "none";
+    }
+    switchLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      setMode(mode === "login" ? "signup" : "login");
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.style.display = "none";
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const url = mode === "login" ? "/api/login" : "/api/signup";
+      submitBtn.disabled = true;
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errorEl.textContent = data.error || "오류가 발생했습니다.";
+          errorEl.style.display = "block";
+          return;
+        }
+        window.location.href = "/";
+      } catch (err) {
+        errorEl.textContent = "네트워크 오류가 발생했습니다.";
+        errorEl.style.display = "block";
+        console.error(err);
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

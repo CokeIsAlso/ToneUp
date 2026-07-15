@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# App data
+uploads/*
+!uploads/.gitkeep
+toneup.db
+
+# 로컬 보관용 대용량 바이너리 (ffmpeg zip 등)
+Readme/
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/

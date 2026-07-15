@@ -1,0 +1,18 @@
+Flask>=3.0
+numpy
+librosa
+soundfile
+openai-whisper
+# CPU 전용 PyTorch (Whisper 의존). GPU 사용 시 별도 설치 권장.
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch
+# AI 코칭 (선택, OPENAI_API_KEY 필요)
+openai>=1.0
+# .env 파일 자동 로딩
+python-dotenv
+# PDF 리포트
+reportlab
+# 운영용 WSGI 서버
+waitress
+# 테스트 (개발용)
+pytest

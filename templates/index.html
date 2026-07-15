@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ToneUp · AI Speech Coach</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='img/logo.svg') }}">
+
+  <!-- Pretendard (modern Korean web font) -->
+  <link rel="stylesheet" as="style" crossorigin
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <!-- 테마 플래시 방지: 렌더 전에 저장된 테마 적용 -->
+  <script>
+    (function () {
+      var t = localStorage.getItem("toneup-theme");
+      if (!t) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.dataset.theme = t;
+    })();
+  </script>
+</head>
+<body>
+  <!-- Top nav -->
+  <nav class="top-nav">
+    <div class="nav-inner">
+      <div class="logo-area">
+        <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="ToneUp" class="nav-logo">
+        <span class="brand">ToneUp</span>
+      </div>
+      <div class="nav-menu">
+        <span class="nav-user" id="navUser">{{ user_email }}</span>
+        <button id="themeToggle" class="theme-toggle" title="테마 전환" aria-label="테마 전환">🌙</button>
+        <button id="logoutBtn" class="cta cta-ghost" type="button">로그아웃</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <!-- Hero -->
+    <header class="hero" id="start">
+      <span class="hero-badge">🎙 실시간 음성 분석</span>
+      <h1 class="hero-title">당신의 말하기를<br><span class="grad">한 단계 끌어올리세요</span></h1>
+      <p class="hero-sub">녹음 버튼을 누르면 발음·속도·억양·습관어를 AI가 분석하고 코칭합니다.</p>
+      <div class="hero-actions">
+        <button id="recordBtn" class="record-btn"><span class="dot"></span><span class="rec-label">녹음 시작</span></button>
+        <button id="uploadBtn" class="upload-btn" type="button">📂 파일 업로드</button>
+        <input id="fileInput" type="file" accept="audio/*,video/mp4,.webm,.m4a" hidden>
+      </div>
+      <div id="recordTimer" class="record-timer" style="display:none;">00:00</div>
+    </header>
+
+    <section class="dashboard">
+      <!-- Left -->
+      <div class="left-col">
+        <div class="card practice-card">
+          <div class="card-head">
+            <h3>연습 모드</h3>
+            <button id="newPromptBtn" class="mini-btn" type="button" style="display:none;">🔀 다른 주제</button>
+          </div>
+          <div class="mode-tabs" id="modeTabs">
+            <button class="mode-tab active" data-mode="free">🎤 자유</button>
+            <button class="mode-tab" data-mode="reading">📖 읽기</button>
+            <button class="mode-tab" data-mode="interview">💼 면접</button>
+            <button class="mode-tab" data-mode="presentation">📊 발표</button>
+          </div>
+          <p id="promptText" class="practice-text">자유롭게 말하고 녹음 버튼을 눌러보세요.</p>
+          <p class="hint" id="promptHint">어떤 말이든 분석해 코칭해 드립니다.</p>
+          <div id="accuracyBox" class="accuracy-box" style="display:none;">
+            목표 문장과 <b id="accuracyValue">--</b> 일치
+            <div id="readDiff" class="read-diff"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>실시간 파형</h3>
+            <span class="hint">녹음 중 파형이 표시됩니다</span>
+          </div>
+          <canvas id="visualizer" class="visual-canvas"></canvas>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>인식 텍스트</h3></div>
+          <div id="transcript" class="transcript">녹음 후 텍스트가 나타납니다</div>
+        </div>
+
+        <div class="card" id="segmentsCard" style="display:none;">
+          <div class="card-head">
+            <h3>문장별 분석</h3>
+            <span class="hint">문장 단위 속도·명료도</span>
+          </div>
+          <div id="segmentsList" class="segments-list"></div>
+        </div>
+
+        <div class="card coaching">
+          <div class="card-head"><h3>코칭 피드백</h3></div>
+          <div id="feedbackList" class="feedback-list">녹음 후 코칭 메시지가 표시됩니다</div>
+          <div id="aiCoaching" class="ai-coaching" style="display:none;">
+            <h5>✦ AI 코칭</h5>
+            <p id="aiCoachingText"></p>
+          </div>
+          <div id="aiImproved" class="ai-improved" style="display:none;">
+            <h5>✎ AI 말투 개선 예시</h5>
+            <p id="aiImprovedText"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <aside class="right-col">
+        <div class="card metric overall-card">
+          <h4>종합 점수</h4>
+          <div class="gauge-sm">
+            <div class="gauge-fill" id="overallFill"></div>
+            <div class="gauge-center" id="overallValue">--</div>
+          </div>
+          <p class="metric-sub" id="overallGrade"></p>
+        </div>
+
+        <div class="metric-grid">
+          <div class="card metric">
+            <h4>발음 점수</h4>
+            <div id="pronGauge" class="gauge-sm">
+              <div class="gauge-fill" id="pronFill"></div>
+              <div class="gauge-center" id="pronValue">--</div>
+            </div>
+          </div>
+          <div class="card metric">
+            <h4>말 속도</h4>
+            <div id="speedGauge" class="gauge-sm">
+              <div class="gauge-fill" id="speedFill"></div>
+              <div class="gauge-center" id="speedValue">--</div>
+            </div>
+            <p class="metric-sub" id="speedLabel"></p>
+          </div>
+        </div>
+
+        <div class="card">
+          <h4 class="card-title">발화 통계</h4>
+          <ul class="stat-list">
+            <li><span>녹음 길이</span><b id="statDuration">--</b></li>
+            <li><span>단어 수</span><b id="statWords">--</b></li>
+            <li><span>휴지 횟수</span><b id="statPauses">--</b></li>
+            <li><span>휴지 비율</span><b id="statPauseRatio">--</b></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h4 class="card-title">음성 특성</h4>
+          <ul class="stat-list">
+            <li><span>평균 음정</span><b id="statPitchMean">--</b></li>
+            <li><span>억양 변화폭</span><b id="statPitchRange">--</b></li>
+            <li><span>음량</span><b id="statVolume">--</b></li>
+            <li><span>음량 일관성</span><b id="statVolumeCons">--</b></li>
+            <li><span>발화 톤(추정)</span><b id="statEmotion">--</b></li>
+            <li><span>발화 에너지</span><b id="statEnergy">--</b></li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h4 class="card-title">습관어 사용</h4>
+          <table id="habitTable">
+            <thead><tr><th>습관어</th><th>사용 횟수</th></tr></thead>
+            <tbody id="habitBody"></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h4 class="card-title">내 녹음 · 파일</h4>
+          <audio id="resultAudio" controls preload="none" style="display:none;width:100%;margin-bottom:10px;"></audio>
+          <div class="file-actions">
+            <button id="downloadReport" class="btn primary" style="display:none">📄 PDF 리포트 다운로드</button>
+            <button id="downloadServer" class="btn ghost" style="display:none">변환 WAV 다운로드</button>
+            <button id="downloadClient" class="btn ghost" style="display:none">원본 다운로드</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Growth summary -->
+    <section class="card growth-section">
+      <div class="card-head">
+        <h3>성장 요약</h3>
+        <span class="hint" id="growthHint">분석을 진행하면 누적 통계가 표시됩니다</span>
+      </div>
+      <div id="growthGrid" class="growth-grid">
+        <div class="growth-tile"><span>세션 수</span><b id="gSessions">--</b></div>
+        <div class="growth-tile"><span>연속 연습</span><b id="gStreak">--</b></div>
+        <div class="growth-tile"><span>평균 종합</span><b id="gAvgOverall">--</b></div>
+        <div class="growth-tile"><span>평균 발음</span><b id="gAvgPron">--</b></div>
+        <div class="growth-tile"><span>최고 발음</span><b id="gBestPron">--</b></div>
+        <div class="growth-tile"><span>평균 말속도</span><b id="gAvgSps">--</b></div>
+        <div class="growth-tile"><span>발음 향상도</span><b id="gImprove">--</b></div>
+      </div>
+    </section>
+
+    <!-- Progress trend -->
+    <section class="card trend-section">
+      <div class="card-head">
+        <h3>성장 추이</h3>
+        <span class="hint">기록이 쌓일수록 변화가 보입니다</span>
+      </div>
+      <canvas id="trendChart" height="110"></canvas>
+    </section>
+
+    <!-- History -->
+    <section class="card history-section">
+      <div class="card-head">
+        <h3>분석 기록</h3>
+        <span class="hint">카드 클릭 시 상세 보기</span>
+      </div>
+      <div id="historyList" class="history-list">아직 기록이 없습니다</div>
+    </section>
+
+    <footer class="footer">© ToneUp · 1인 개발 프로젝트</footer>
+  </main>
+
+  <!-- 기록 상세 모달 -->
+  <div id="detailModal" class="modal" style="display:none;">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h3 id="modalTitle">기록 상세</h3>
+        <button class="modal-close" data-close aria-label="닫기">×</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- 드래그 업로드 오버레이 -->
+  <div id="dropOverlay" class="drop-overlay" style="display:none;">
+    <div class="drop-inner">🎧 여기에 오디오 파일을 놓으세요</div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/visualizer.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
